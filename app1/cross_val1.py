@@ -1,4 +1,4 @@
-from keras.models import Sequential
+from keras.models import Sequential, model_from_yaml
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import StratifiedKFold

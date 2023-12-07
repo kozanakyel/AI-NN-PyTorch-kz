@@ -2,15 +2,16 @@ from __future__ import print_function
 import matplotlib.pyplot as plt
  
 class AStarGraph(object):
-	#Define a class board like grid with two barriers
+	# Define a class board like grid with two barriers
  
 	def __init__(self):
 		self.barriers = []
 		self.barriers.append([(2,2),(2,3),(2,4),(2,5),(2,6),(3,6),(4,6),(5,6),(5,5),(5,4),(5,3),(5,2),(4,2),(3,2),(2,2)])
  
+ 
 	def heuristic(self, start, goal):
-		#Use Chebyshev distance heuristic if we can move one square either
-		#adjacent or diagonal
+		# Use Chebyshev distance heuristic if we can move one square either
+		# adjacent or diagonal
 		D = 1
 		D2 = 1
 		dx = abs(start[0] - goal[0])
@@ -19,7 +20,7 @@ class AStarGraph(object):
  
 	def get_vertex_neighbours(self, pos):
 		n = []
-		#Moves allow link a chess king
+		# Moves allow link a chess king
 		for dx, dy in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,1),(1,-1),(-1,-1)]:
 			x2 = pos[0] + dx
 			y2 = pos[1] + dy
@@ -31,8 +32,8 @@ class AStarGraph(object):
 	def move_cost(self, a, b):
 		for barrier in self.barriers:
 			if b in barrier:
-				return 100 #Extremely high cost to enter barrier squares
-		return 1 #Normal movement cost
+				return 100 # Extremely high cost to enter barrier squares
+		return 1 # Normal movement cost
  
 def AStarSearch(start, end, graph):
  

@@ -28,6 +28,8 @@ class AStarGraph(object):
 				continue
 			n.append((x2, y2))
 		return n
+
+
  
 	def move_cost(self, a, b):
 		for barrier in self.barriers:

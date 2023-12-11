@@ -7,6 +7,7 @@ from operator import itemgetter
 import torch.nn as nn
 import torch
 
+
 def build_2d_grid(xlim, ylim, n_lines=11, n_points=1000):
     """Returns a 2D grid of boundaries given by `xlim` and `ylim`,
      composed of `n_lines` evenly spaced lines of `n_points` each.
@@ -54,15 +55,19 @@ def build_2d_grid(xlim, ylim, n_lines=11, n_points=1000):
 
     return lines
 
-FeatureSpaceData = namedtuple('FeatureSpaceData', ['line', 'bent_line', 'prediction', 'target'])
-FeatureSpaceLines = namedtuple('FeatureSpaceLines', ['grid', 'input', 'contour'])
+
+FeatureSpaceData = namedtuple(
+    "FeatureSpaceData", ["line", "bent_line", "prediction", "target"]
+)
+FeatureSpaceLines = namedtuple("FeatureSpaceLines", ["grid", "input", "contour"])
+
 
 class Basic(object):
-    """Basic plot class, NOT to be instantiated directly.
-    """
+    """Basic plot class, NOT to be instantiated directly."""
+
     def __init__(self, ax):
-        self._title = ''
-        self._custom_title = ''
+        self._title = ""
+        self._custom_title = ""
         self.n_epochs = 0
 
         self.ax = ax
@@ -74,7 +79,7 @@ class Basic(object):
         title = self._title
         if not isinstance(title, tuple):
             title = (self._title,)
-        title = tuple([' '.join([self._custom_title, t]) for t in title])
+        title = tuple([" ".join([self._custom_title, t]) for t in title])
         return title
 
     @property
@@ -135,11 +140,15 @@ class Basic(object):
         if epoch_end == -1:
             epoch_end = self.n_epochs
 
-        anim = animation.FuncAnimation(self.fig, self.__class__._update,
-                                       fargs=(self, epoch_start),
-                                       frames=(epoch_end - epoch_start),
-                                       blit=True)
+        anim = animation.FuncAnimation(
+            self.fig,
+            self.__class__._update,
+            fargs=(self, epoch_start),
+            frames=(epoch_end - epoch_start),
+            blit=True,
+        )
         return anim
+
 
 class FeatureSpace(Basic):
     """Creates an instance of a FeatureSpace object to make plots
@@ -152,6 +161,7 @@ class FeatureSpace(Basic):
         If True, axis scales are fixed to the maximum from beginning.
         Default is True.
     """
+
     def __init__(self, ax, scale_fixed=True, boundary=True, cmap=None, alpha=1.0):
         super(FeatureSpace, self).__init__(ax)
         self.ax.grid(False)
@@ -165,7 +175,7 @@ class FeatureSpace(Basic):
         self.contour_lines = None
         self.predictions = None
         self.targets = None
-        
+
         if cmap is None:
             cmap = plt.cm.RdBu
         self.cmap = cmap
@@ -177,7 +187,7 @@ class FeatureSpace(Basic):
         self.points = []
 
     def load_data(self, feature_space_data):
-        """ Loads feature space data as computed in Replay class.
+        """Loads feature space data as computed in Replay class.
         Parameters
         ----------
         feature_space_data: FeatureSpaceData
@@ -191,21 +201,33 @@ class FeatureSpace(Basic):
         self.predictions = feature_space_data.prediction
         self.targets = feature_space_data.target
         self.grid_lines, self.inputs, self.contour_lines = feature_space_data.line
-        self.bent_lines, self.bent_inputs, self.bent_contour_lines = feature_space_data.bent_line
+        (
+            self.bent_lines,
+            self.bent_inputs,
+            self.bent_contour_lines,
+        ) = feature_space_data.bent_line
 
         self.n_epochs = self.bent_inputs.shape[0]
         self.n_inputs = self.bent_inputs.shape[-1]
 
         self.classes = np.unique(self.targets)
-        self.bent_inputs = [self.bent_inputs[:, self.targets == target, :] for target in self.classes]
+        self.bent_inputs = [
+            self.bent_inputs[:, self.targets == target, :] for target in self.classes
+        ]
 
         self._prepare_plot()
         return self
 
     def _prepare_plot(self):
         if self.scale_fixed:
-            xlim = [self.bent_contour_lines[:, :, :, 0].min() - .05, self.bent_contour_lines[:, :, :, 0].max() + .05]
-            ylim = [self.bent_contour_lines[:, :, :, 1].min() - .05, self.bent_contour_lines[:, :, :, 1].max() + .05]
+            xlim = [
+                self.bent_contour_lines[:, :, :, 0].min() - 0.05,
+                self.bent_contour_lines[:, :, :, 0].max() + 0.05,
+            ]
+            ylim = [
+                self.bent_contour_lines[:, :, :, 1].min() - 0.05,
+                self.bent_contour_lines[:, :, :, 1].max() + 0.05,
+            ]
             self.ax.set_xlim(xlim)
             self.ax.set_ylim(ylim)
 
@@ -215,7 +237,7 @@ class FeatureSpace(Basic):
         self.lines = []
         self.points = []
         for c in range(self.grid_lines.shape[0]):
-            line, = self.ax.plot([], [], linewidth=0.5, color='k')
+            (line,) = self.ax.plot([], [], linewidth=0.5, color="k")
             self.lines.append(line)
         for c in range(len(self.classes)):
             point = self.ax.scatter([], [])
@@ -223,18 +245,30 @@ class FeatureSpace(Basic):
 
         contour_x = self.bent_contour_lines[0, :, :, 0]
         contour_y = self.bent_contour_lines[0, :, :, 1]
-        
+
         if self.boundary:
-            self.contour = self.ax.contourf(contour_x, contour_y, np.zeros(shape=(len(contour_x), len(contour_y))),
-                                  cmap=plt.cm.brg, alpha=self.alpha, levels=np.linspace(0, 1, 8))
+            self.contour = self.ax.contourf(
+                contour_x,
+                contour_y,
+                np.zeros(shape=(len(contour_x), len(contour_y))),
+                cmap=plt.cm.brg,
+                alpha=self.alpha,
+                levels=np.linspace(0, 1, 8),
+            )
 
     @staticmethod
     def _update(i, fs, epoch_start=0, colors=None, **kwargs):
         epoch = i + epoch_start
-        fs.ax.set_title('Epoch: {}'.format(epoch))
+        fs.ax.set_title("Epoch: {}".format(epoch))
         if not fs.scale_fixed:
-            xlim = [fs.bent_contour_lines[epoch, :, :, 0].min() - .05, fs.bent_contour_lines[epoch, :, :, 0].max() + .05]
-            ylim = [fs.bent_contour_lines[epoch, :, :, 1].min() - .05, fs.bent_contour_lines[epoch, :, :, 1].max() + .05]
+            xlim = [
+                fs.bent_contour_lines[epoch, :, :, 0].min() - 0.05,
+                fs.bent_contour_lines[epoch, :, :, 0].max() + 0.05,
+            ]
+            ylim = [
+                fs.bent_contour_lines[epoch, :, :, 1].min() - 0.05,
+                fs.bent_contour_lines[epoch, :, :, 1].max() + 0.05,
+            ]
             fs.ax.set_xlim(xlim)
             fs.ax.set_ylim(ylim)
 
@@ -245,43 +279,60 @@ class FeatureSpace(Basic):
             line.set_data(*line_coords[:, :, c])
 
         if colors is None:
-            colors = ['r', 'b']
-            
-        if 's' not in kwargs.keys():
-            kwargs.update({'s': 10})
-            
-        if 'marker' not in kwargs.keys():
-            kwargs.update({'marker': 'o'})
-            
+            colors = ["r", "b"]
+
+        if "s" not in kwargs.keys():
+            kwargs.update({"s": 10})
+
+        if "marker" not in kwargs.keys():
+            kwargs.update({"marker": "o"})
+
         input_coords = [coord[epoch].transpose() for coord in fs.bent_inputs]
         for c in range(len(fs.points)):
             fs.points[c].remove()
-            fs.points[c] = fs.ax.scatter(*input_coords[c], color=colors[int(fs.classes[c])], **kwargs)
+            fs.points[c] = fs.ax.scatter(
+                *input_coords[c], color=colors[int(fs.classes[c])], **kwargs
+            )
 
         if fs.boundary:
             for c in fs.contour.collections:
                 c.remove()  # removes only the contours, leaves the rest intact
 
-            fs.contour = fs.ax.contourf(fs.bent_contour_lines[epoch, :, :, 0],
-                                        fs.bent_contour_lines[epoch, :, :, 1],
-                                        fs.predictions[epoch].squeeze(),
-                                        cmap=fs.cmap, alpha=fs.alpha, levels=np.linspace(0, 1, 8))
+            fs.contour = fs.ax.contourf(
+                fs.bent_contour_lines[epoch, :, :, 0],
+                fs.bent_contour_lines[epoch, :, :, 1],
+                fs.predictions[epoch].squeeze(),
+                cmap=fs.cmap,
+                alpha=fs.alpha,
+                levels=np.linspace(0, 1, 8),
+            )
 
-        fs.ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
-        fs.ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.1f'))
+        fs.ax.xaxis.set_major_formatter(ticker.FormatStrFormatter("%0.1f"))
+        fs.ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%0.1f"))
         fs.ax.locator_params(tight=True, nbins=7)
-        
-        #for tick in fs.ax.xaxis.get_major_ticks():
+
+        # for tick in fs.ax.xaxis.get_major_ticks():
         #    tick.label.set_fontsize(10)
-        #for tick in fs.ax.yaxis.get_major_ticks():
+        # for tick in fs.ax.yaxis.get_major_ticks():
         #    tick.label.set_fontsize(10)
-        fs.ax.yaxis.set_label_coords(-0.15,0.5)
+        fs.ax.yaxis.set_label_coords(-0.15, 0.5)
 
         return fs.lines
-    
 
-def build_feature_space(model, states, X, y, layer_name=None, contour_points=1000, xlim=(-1, 1), ylim=(-1, 1),
-                        display_grid=True, epoch_start=0, epoch_end=-1):
+
+def build_feature_space(
+    model,
+    states,
+    X,
+    y,
+    layer_name=None,
+    contour_points=1000,
+    xlim=(-1, 1),
+    ylim=(-1, 1),
+    display_grid=True,
+    epoch_start=0,
+    epoch_end=-1,
+):
     """Builds a FeatureSpace object to be used for plotting and
     animating.
     The underlying data, that is, grid lines, inputs and contour
@@ -328,7 +379,7 @@ def build_feature_space(model, states, X, y, layer_name=None, contour_points=100
     else:
         activation_idx = -3
         func = lambda x: x
-    
+
     names = np.array(list(map(itemgetter(0), layers)))
     matches = names == layer_name
 
@@ -338,26 +389,26 @@ def build_feature_space(model, states, X, y, layer_name=None, contour_points=100
         raise AttributeError("No layer named {}".format(layer_name))
     if layer_name is None:
         layer_name = layers[activation_idx][0]
-    
+
     try:
         final_dims = layers[activation_idx][1].out_features
     except:
         try:
             final_dims = layers[activation_idx + 1][1].in_features
         except:
-            final_dims = layers[activation_idx - 1][1].out_features            
-    
-    assert final_dims == 2, 'Only layers with 2-dimensional outputs are supported!'
+            final_dims = layers[activation_idx - 1][1].out_features
+
+    assert final_dims == 2, "Only layers with 2-dimensional outputs are supported!"
 
     y_ind = np.atleast_1d(y.squeeze().argsort())
     X = np.atleast_2d(X.squeeze())[y_ind].reshape(X.shape)
     y = np.atleast_1d(y.squeeze())[y_ind]
 
     if epoch_end == -1:
-        epoch_end = len(states)-1
-    epoch_end = min(epoch_end, len(states)-1)
-    
-    #input_dims = self.model.input_shape[-1]
+        epoch_end = len(states) - 1
+    epoch_end = min(epoch_end, len(states) - 1)
+
+    # input_dims = self.model.input_shape[-1]
     input_dims = X.shape[-1]
     n_classes = len(np.unique(y))
 
@@ -373,32 +424,39 @@ def build_feature_space(model, states, X, y, layer_name=None, contour_points=100
     bent_inputs = []
     bent_contour_lines = []
     bent_preds = []
-    
+
     # For each epoch, uses the corresponding weights
     for epoch in range(epoch_start, epoch_end + 1):
         X_values = get_values_for_epoch(model, states, epoch, X)
         bent_inputs.append(X_values[layer_name])
         # Transforms the inputs
-        #inputs = [TEST_MODE, X] + weights
-        #bent_inputs.append(get_activations(inputs=inputs)[0])
+        # inputs = [TEST_MODE, X] + weights
+        # bent_inputs.append(get_activations(inputs=inputs)[0])
 
         if input_dims == 2 and display_grid:
             # Transforms the grid lines
-            grid_values = get_values_for_epoch(model, states, epoch, grid_lines.reshape(-1, 2))
-            #inputs = [TEST_MODE, grid_lines.reshape(-1, 2)] + weights
+            grid_values = get_values_for_epoch(
+                model, states, epoch, grid_lines.reshape(-1, 2)
+            )
+            # inputs = [TEST_MODE, grid_lines.reshape(-1, 2)] + weights
             output_shape = (grid_lines.shape[:2]) + (-1,)
-            #bent_lines.append(get_activations(inputs=inputs)[0].reshape(output_shape))
+            # bent_lines.append(get_activations(inputs=inputs)[0].reshape(output_shape))
             bent_lines.append(grid_values[layer_name].reshape(output_shape))
 
-            contour_values = get_values_for_epoch(model, states, epoch, contour_lines.reshape(-1, 2))
-            #inputs = [TEST_MODE, contour_lines.reshape(-1, 2)] + weights
+            contour_values = get_values_for_epoch(
+                model, states, epoch, contour_lines.reshape(-1, 2)
+            )
+            # inputs = [TEST_MODE, contour_lines.reshape(-1, 2)] + weights
             output_shape = (contour_lines.shape[:2]) + (-1,)
-            #bent_contour_lines.append(get_activations(inputs=inputs)[0].reshape(output_shape))
+            # bent_contour_lines.append(get_activations(inputs=inputs)[0].reshape(output_shape))
             bent_contour_lines.append(contour_values[layer_name].reshape(output_shape))
             # Makes predictions for each point in the contour surface
-            #bent_preds.append((get_predictions(inputs=inputs)[0].reshape(output_shape) > .5).astype(np.int))
-            bent_preds.append((func(contour_values[last_layer_name]).reshape(output_shape) > .5).astype(np.int))
-            
+            # bent_preds.append((get_predictions(inputs=inputs)[0].reshape(output_shape) > .5).astype(np.int))
+            bent_preds.append(
+                (
+                    func(contour_values[last_layer_name]).reshape(output_shape) > 0.5
+                ).astype(np.int64)
+            )
 
     bent_inputs = np.array(bent_inputs)
 
@@ -408,14 +466,29 @@ def build_feature_space(model, states, X, y, layer_name=None, contour_points=100
     bent_preds = np.array(bent_preds)
 
     line_data = FeatureSpaceLines(grid=grid_lines, input=X, contour=contour_lines)
-    bent_line_data = FeatureSpaceLines(grid=bent_lines, input=bent_inputs, contour=bent_contour_lines)
-    _feature_space_data = FeatureSpaceData(line=line_data, bent_line=bent_line_data,
-                                                prediction=bent_preds, target=y)
+    bent_line_data = FeatureSpaceLines(
+        grid=bent_lines, input=bent_inputs, contour=bent_contour_lines
+    )
+    _feature_space_data = FeatureSpaceData(
+        line=line_data, bent_line=bent_line_data, prediction=bent_preds, target=y
+    )
 
     return _feature_space_data
 
-def build_decision_boundary(model, states, X, y, layer_name=None, contour_points=1000, xlim=(-1, 1), ylim=(-1, 1), display_grid=True,
-                            epoch_start=0, epoch_end=-1):
+
+def build_decision_boundary(
+    model,
+    states,
+    X,
+    y,
+    layer_name=None,
+    contour_points=1000,
+    xlim=(-1, 1),
+    ylim=(-1, 1),
+    display_grid=True,
+    epoch_start=0,
+    epoch_end=-1,
+):
     """Builds a FeatureSpace object to be used for plotting and
     animating the raw inputs and the decision boundary.
     The underlying data, that is, grid lines, inputs and contour
@@ -456,7 +529,7 @@ def build_decision_boundary(model, states, X, y, layer_name=None, contour_points
     else:
         activation_idx = -3
         func = lambda x: x
-        
+
     if layer_name is None:
         layer_name = layers[activation_idx][0]
     else:
@@ -470,20 +543,20 @@ def build_decision_boundary(model, states, X, y, layer_name=None, contour_points
         final_dims = layers[activation_idx][1].out_features
     except AttributeError:
         final_dims = layers[activation_idx + 1][1].in_features
-    assert final_dims == 2, 'Only layers with 2-dimensional outputs are supported!'
+    assert final_dims == 2, "Only layers with 2-dimensional outputs are supported!"
 
     y_ind = y.squeeze().argsort()
     X = X.squeeze()[y_ind].reshape(X.shape)
     y = y.squeeze()[y_ind]
 
     if epoch_end == -1:
-        epoch_end = len(states)-1
-    epoch_end = min(epoch_end, len(states)-1)
-    
-    #input_dims = self.model.input_shape[-1]
+        epoch_end = len(states) - 1
+    epoch_end = min(epoch_end, len(states) - 1)
+
+    # input_dims = self.model.input_shape[-1]
     input_dims = X.shape[-1]
     n_classes = len(np.unique(y))
-    
+
     # Builds a 2D grid and the corresponding contour coordinates
     grid_lines = np.array([])
     if display_grid:
@@ -501,10 +574,16 @@ def build_decision_boundary(model, states, X, y, layer_name=None, contour_points
         bent_inputs.append(X)
         bent_contour_lines.append(contour_lines)
 
-        contour_values = get_values_for_epoch(model, states, epoch, contour_lines.reshape(-1, 2))
+        contour_values = get_values_for_epoch(
+            model, states, epoch, contour_lines.reshape(-1, 2)
+        )
         output_shape = (contour_lines.shape[:2]) + (-1,)
         # Makes predictions for each point in the contour surface
-        bent_preds.append((func(contour_values[last_layer_name]).reshape(output_shape) > .5).astype(np.int))
+        bent_preds.append(
+            (func(contour_values[last_layer_name]).reshape(output_shape) > 0.5).astype(
+                np.int64
+            )
+        )
 
     # Makes lists into ndarrays and wrap them as namedtuples
     bent_inputs = np.array(bent_inputs)
@@ -513,11 +592,15 @@ def build_decision_boundary(model, states, X, y, layer_name=None, contour_points
     bent_preds = np.array(bent_preds)
 
     line_data = FeatureSpaceLines(grid=grid_lines, input=X, contour=contour_lines)
-    bent_line_data = FeatureSpaceLines(grid=bent_lines, input=bent_inputs, contour=bent_contour_lines)
-    _decision_boundary_data = FeatureSpaceData(line=line_data, bent_line=bent_line_data,
-                                                    prediction=bent_preds, target=y)
+    bent_line_data = FeatureSpaceLines(
+        grid=bent_lines, input=bent_inputs, contour=bent_contour_lines
+    )
+    _decision_boundary_data = FeatureSpaceData(
+        line=line_data, bent_line=bent_line_data, prediction=bent_preds, target=y
+    )
 
     return _decision_boundary_data
+
 
 def get_intermediate_values(model, x):
     hooks = {}
@@ -526,9 +609,9 @@ def get_intermediate_values(model, x):
 
     def hook_fn(m, i, o):
         visualization[layer_names[m]] = o.cpu().detach().numpy()
-    
+
     for name, layer in model.named_modules():
-        if name != '':
+        if name != "":
             layer_names[layer] = name
             hooks[name] = layer.register_forward_hook(hook_fn)
 
@@ -539,8 +622,9 @@ def get_intermediate_values(model, x):
 
     for hook in hooks.values():
         hook.remove()
-        
+
     return visualization
+
 
 def get_values_for_epoch(model, states, epoch, x):
     with torch.no_grad():

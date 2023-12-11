@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt, patches
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from .replay import *
 
+
 # https://stackoverflow.com/questions/34017866/arrow-on-a-line-plot-with-matplotlib
 def add_arrow(line, position=None, direction='right', size=15, color=None, lw=2, alpha=1.0, text=None, text_offset=(0 , 0)):
     """

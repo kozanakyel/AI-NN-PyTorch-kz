@@ -8,29 +8,37 @@ DATA_PATH = 'my_research/data/'
 all_letters = string.ascii_letters + " .,;'"
 n_letters = len(all_letters)
 
-def findFiles(path):
-    return glob.glob(path)
 
-# Turn a Unicode string to plain ASCII, thanks to https://stackoverflow.com/a/518232/2809427
-def unicodeToAscii(s):
-    return "".join(
-        c
-        for c in unicodedata.normalize("NFD", s)
-        if unicodedata.category(c) != "Mn" and c in all_letters
+class UtilityService:
+    def __init__(self):
+        self.DATA_PATH = 'my_research/data/'
+        self.all_letters = string.ascii_letters + " .,;'"
+        self.n_letters = len(all_letters)
+    
+    @staticmethod
+    def findFiles(path):
+        return glob.glob(path)
+
+    # Turn a Unicode string to plain ASCII, thanks to https://stackoverflow.com/a/518232/2809427
+    @staticmethod
+    def unicodeToAscii(s):
+        return "".join(
+            c
+            for c in unicodedata.normalize("NFD", s)
+            if unicodedata.category(c) != "Mn" and c in all_letters
     )
+
+    # Read a file and split into lines
+    @staticmethod
+    def readLines(filename):
+        lines = open(filename, encoding="utf-8").read().strip().split("\n")
+        return [UtilityService.unicodeToAscii(line) for line in lines]
 
 # Build the category_lines dictionary, a list of names per language
 category_lines = {}
 all_categories = []
 
-
-# Read a file and split into lines
-def readLines(filename):
-    lines = open(filename, encoding="utf-8").read().strip().split("\n")
-    return [unicodeToAscii(line) for line in lines]
-
-
-for filename in findFiles(f"{DATA_PATH}names/*.txt"):
+for filename in findFiles(f"{UtilityService.DATA_PATH}names/*.txt"):
     category = os.path.splitext(os.path.basename(filename))[0]
     all_categories.append(category)
     lines = readLines(filename)
@@ -155,6 +163,21 @@ def timeSince(since):
     s -= m * 60
     return '%dm %ds' % (m, s)
 
+def predict(input_line, n_predictions=3):
+    print('\n> %s' % input_line)
+    with torch.no_grad():
+        output = evaluate(lineToTensor(input_line))
+
+        # Get top N categories
+        topv, topi = output.topk(n_predictions, 1, True)
+        predictions = []
+
+        for i in range(n_predictions):
+            value = topv[0][i].item()
+            category_index = topi[0][i].item()
+            print('(%.2f) %s' % (value, all_categories[category_index]))
+            predictions.append([value, all_categories[category_index]])
+
 
 if __name__ == '__main__':
     # print(findFiles(f"{DATA_PATH}names/*.txt"))
@@ -171,6 +194,9 @@ if __name__ == '__main__':
     # output, next_hidden = rnn(input[0], hidden)
     # print(output)
     # print(categoryFromOutput(output))
+    
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
     
     for i in range(10):
         category, line, category_tensor, line_tensor = randomTrainingExample()
@@ -194,3 +220,54 @@ if __name__ == '__main__':
         if iter % plot_every == 0:
             all_losses.append(current_loss / plot_every)
             current_loss = 0   
+    
+    # PLOT TRAIN VALIDATION LOSS      
+    plt.figure()
+    plt.plot(all_losses)
+    plt.savefig(f'{DATA_PATH}val_train_loss.png')
+    
+    # Keep track of correct guesses in a confusion matrix
+    confusion = torch.zeros(n_categories, n_categories)
+    n_confusion = 10000
+
+    # Just return an output given a line
+    def evaluate(line_tensor):
+        hidden = rnn.initHidden()
+
+        for i in range(line_tensor.size()[0]):
+            output, hidden = rnn(line_tensor[i], hidden)
+
+        return output
+
+    # Go through a bunch of examples and record which are correctly guessed
+    for i in range(n_confusion):
+        category, line, category_tensor, line_tensor = randomTrainingExample()
+        output = evaluate(line_tensor)
+        guess, guess_i = categoryFromOutput(output)
+        category_i = all_categories.index(category)
+        confusion[category_i][guess_i] += 1
+
+    # Normalize by dividing every row by its sum
+    for i in range(n_categories):
+        confusion[i] = confusion[i] / confusion[i].sum()
+
+    # Set up plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(confusion.numpy())
+    fig.colorbar(cax)
+
+    # Set up axes
+    ax.set_xticklabels([''] + all_categories, rotation=90)
+    ax.set_yticklabels([''] + all_categories)
+
+    # Force label at every tick
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+    # sphinx_gallery_thumbnail_number = 2
+    plt.savefig(f'{DATA_PATH}heatmap.png')
+    
+    predict('Dovesky')
+    predict('Jackson')
+    predict('Satoshi')

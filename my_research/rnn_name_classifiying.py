@@ -34,17 +34,20 @@ class UtilityService:
         lines = open(filename, encoding="utf-8").read().strip().split("\n")
         return [UtilityService.unicodeToAscii(line) for line in lines]
 
-# Build the category_lines dictionary, a list of names per language
-category_lines = {}
-all_categories = []
 
-for filename in findFiles(f"{UtilityService.DATA_PATH}names/*.txt"):
-    category = os.path.splitext(os.path.basename(filename))[0]
-    all_categories.append(category)
-    lines = readLines(filename)
-    category_lines[category] = lines
+class CategoryCreateService:
+    # Build the category_lines dictionary, a list of names per language
+    category_lines = {}
+    all_categories = []
 
-n_categories = len(all_categories)
+    for filename in findFiles(f"{UtilityService.DATA_PATH}names/*.txt"):
+        category = os.path.splitext(os.path.basename(filename))[0]
+        all_categories.append(category)
+        lines = readLines(filename)
+        category_lines[category] = lines
+
+    n_categories = len(all_categories)
+
 
 
 ###########   PART 2   ################

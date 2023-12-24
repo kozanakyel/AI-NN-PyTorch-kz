@@ -4,16 +4,19 @@ import os
 import unicodedata
 import string
 
-DATA_PATH = 'my_research/data/'
-all_letters = string.ascii_letters + " .,;'"
-n_letters = len(all_letters)
+import torch
+import torch.nn as nn
+
+# DATA_PATH = 'my_research/data/'
+# all_letters = string.ascii_letters + " .,;'"
+# n_letters = len(all_letters)
 
 
 class UtilityService:
     def __init__(self):
         self.DATA_PATH = 'my_research/data/'
         self.all_letters = string.ascii_letters + " .,;'"
-        self.n_letters = len(all_letters)
+        self.n_letters = len(self.all_letters)
     
     @staticmethod
     def findFiles(path):
@@ -37,45 +40,51 @@ class UtilityService:
 
 class CategoryCreateService:
     # Build the category_lines dictionary, a list of names per language
-    category_lines = {}
-    all_categories = []
+    def __init__(self):
+        self._utility_service = UtilityService()
+        self.category_lines = {}
+        self.all_categories = []
+        self._create_category_and_lines()
 
-    for filename in findFiles(f"{UtilityService.DATA_PATH}names/*.txt"):
-        category = os.path.splitext(os.path.basename(filename))[0]
-        all_categories.append(category)
-        lines = readLines(filename)
-        category_lines[category] = lines
+    def _create_category_and_lines(self):
+        for filename in self._utility_service.findFiles(f"{self._utility_service.DATA_PATH}names/*.txt"):
+            category = os.path.splitext(os.path.basename(filename))[0]
+            self.all_categories.append(category)
+            lines = self._utility_service.readLines(filename)
+            self.category_lines[category] = lines
 
-    n_categories = len(all_categories)
+    # n_categories = len(all_categories)
 
 
 
 ###########   PART 2   ################
 
-import torch
+class TorchLetterUtilityService:
+    # Find letter index from all_letters, e.g. "a" = 0
+    @staticmethod
+    def letterToIndex(letter):
+        return UtilityService.all_letters.find(letter)
 
-# Find letter index from all_letters, e.g. "a" = 0
-def letterToIndex(letter):
-    return all_letters.find(letter)
+    # Just for demonstration, turn a letter into a <1 x n_letters> Tensor
+    @staticmethod
+    def letterToTensor(letter):
+        tensor = torch.zeros(1, UtilityService.n_letters)
+        tensor[0][TorchLetterUtilityService.letterToIndex(letter)] = 1
+        return tensor
 
-# Just for demonstration, turn a letter into a <1 x n_letters> Tensor
-def letterToTensor(letter):
-    tensor = torch.zeros(1, n_letters)
-    tensor[0][letterToIndex(letter)] = 1
-    return tensor
-
-# Turn a line into a <line_length x 1 x n_letters>,
-# or an array of one-hot letter vectors
-def lineToTensor(line):
-    tensor = torch.zeros(len(line), 1, n_letters)
-    for li, letter in enumerate(line):
-        tensor[li][0][letterToIndex(letter)] = 1
-    return tensor
+    # Turn a line into a <line_length x 1 x n_letters>,
+    # or an array of one-hot letter vectors
+    @staticmethod
+    def lineToTensor(line):
+        tensor = torch.zeros(len(line), 1, UtilityService.n_letters)
+        for li, letter in enumerate(line):
+            tensor[li][0][TorchLetterUtilityService.letterToIndex(letter)] = 1
+        return tensor
 
 
 #############      PART 3         #############
 
-import torch.nn as nn
+
 
 class RNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):

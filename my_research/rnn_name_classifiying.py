@@ -28,7 +28,7 @@ class UtilityService:
         return "".join(
             c
             for c in unicodedata.normalize("NFD", s)
-            if unicodedata.category(c) != "Mn" and c in all_letters
+            if unicodedata.category(c) != "Mn" and c in UtilityService.all_letters
     )
 
     # Read a file and split into lines
@@ -52,6 +52,11 @@ class CategoryService:
             self.all_categories.append(category)
             lines = self._utility_service.readLines(filename)
             self.category_lines[category] = lines
+            
+    def categoryFromOutput(self, output, all_categories):
+        top_n, top_i = output.topk(1)
+        category_i = top_i[0].item()
+        return all_categories[category_i], category_i
 
     # n_categories = len(all_categories)
 
@@ -87,7 +92,7 @@ class TorchLetterUtilityService:
 
 
 class RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, hidden_size, output_size, category_service):
         super(RNN, self).__init__()
 
         self.hidden_size = hidden_size
@@ -95,7 +100,12 @@ class RNN(nn.Module):
         self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
         self.h2o = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
+        
+        self.criterion = nn.NLLLoss()
+        self.learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
 
+        self.category_service = category_service
+        
     def forward(self, input, hidden):
         combined = torch.cat((input, hidden), 1)
         hidden = self.i2h(combined)
@@ -105,18 +115,56 @@ class RNN(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, self.hidden_size)
+    
+    def train(self, category_tensor, line_tensor):
+        hidden = self.initHidden()
+
+        rnn.zero_grad()
+
+        for i in range(line_tensor.size()[0]):
+            output, hidden = self(line_tensor[i], hidden)
+
+        loss = self.criterion(output, category_tensor)
+        loss.backward()
+
+        # Add parameters' gradients to their values, multiplied by learning rate
+        for p in self.parameters():
+            p.data.add_(p.grad.data, alpha=-self.learning_rate)
+
+        return output, loss.item()
+    
+    # Just return an output given a line
+    def evaluate(self, line_tensor):
+        hidden = self.initHidden()
+
+        for i in range(line_tensor.size()[0]):
+            output, hidden = self(line_tensor[i], hidden)
+
+        return output
+    
+    def predict(self, input_line, n_predictions=3):
+        print('\n> %s' % input_line)
+        with torch.no_grad():
+            output = self.evaluate(TorchLetterUtilityService.lineToTensor(input_line))
+
+            # Get top N categories
+            topv, topi = output.topk(n_predictions, 1, True)
+            predictions = []
+
+            for i in range(n_predictions):
+                value = topv[0][i].item()
+                category_index = topi[0][i].item()
+                print('(%.2f) %s' % (value, category_service.all_categories[category_index]))
+                predictions.append([value, category_service.all_categories[category_index]])
+    
+    
 
 category_service = CategoryService()
 utils = UtilityService()
 n_categories = len(category_service.all_categories)
 n_hidden = 128
-rnn = RNN(utils.n_letters, n_hidden, n_categories)
+rnn = RNN(utils.n_letters, n_hidden, n_categories, category_service)
 
-
-def categoryFromOutput(output, all_categories):
-    top_n, top_i = output.topk(1)
-    category_i = top_i[0].item()
-    return all_categories[category_i], category_i
 
 
 ###########     PART 4       #########
@@ -137,25 +185,9 @@ def randomTrainingExample():
 ##############   PART 5     #########
 
 
-criterion = nn.NLLLoss()
-learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
 
-def train(category_tensor, line_tensor):
-    hidden = rnn.initHidden()
 
-    rnn.zero_grad()
 
-    for i in range(line_tensor.size()[0]):
-        output, hidden = rnn(line_tensor[i], hidden)
-
-    loss = criterion(output, category_tensor)
-    loss.backward()
-
-    # Add parameters' gradients to their values, multiplied by learning rate
-    for p in rnn.parameters():
-        p.data.add_(p.grad.data, alpha=-learning_rate)
-
-    return output, loss.item()
 
 
 ##############   PART 6    #########
@@ -178,20 +210,7 @@ def timeSince(since):
     s -= m * 60
     return '%dm %ds' % (m, s)
 
-def predict(input_line, n_predictions=3):
-    print('\n> %s' % input_line)
-    with torch.no_grad():
-        output = evaluate(lineToTensor(input_line))
 
-        # Get top N categories
-        topv, topi = output.topk(n_predictions, 1, True)
-        predictions = []
-
-        for i in range(n_predictions):
-            value = topv[0][i].item()
-            category_index = topi[0][i].item()
-            print('(%.2f) %s' % (value, all_categories[category_index]))
-            predictions.append([value, all_categories[category_index]])
 
 
 if __name__ == '__main__':
@@ -245,14 +264,7 @@ if __name__ == '__main__':
     confusion = torch.zeros(n_categories, n_categories)
     n_confusion = 10000
 
-    # Just return an output given a line
-    def evaluate(line_tensor):
-        hidden = rnn.initHidden()
-
-        for i in range(line_tensor.size()[0]):
-            output, hidden = rnn(line_tensor[i], hidden)
-
-        return output
+    
 
     # Go through a bunch of examples and record which are correctly guessed
     for i in range(n_confusion):

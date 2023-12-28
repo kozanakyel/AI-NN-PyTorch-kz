@@ -38,7 +38,7 @@ class UtilityService:
         return [UtilityService.unicodeToAscii(line) for line in lines]
 
 
-class CategoryCreateService:
+class CategoryService:
     # Build the category_lines dictionary, a list of names per language
     def __init__(self):
         self._utility_service = UtilityService()
@@ -106,11 +106,14 @@ class RNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1, self.hidden_size)
 
+category_service = CategoryService()
+utils = UtilityService()
+n_categories = len(category_service.all_categories)
 n_hidden = 128
-rnn = RNN(n_letters, n_hidden, n_categories)
+rnn = RNN(utils.n_letters, n_hidden, n_categories)
 
 
-def categoryFromOutput(output):
+def categoryFromOutput(output, all_categories):
     top_n, top_i = output.topk(1)
     category_i = top_i[0].item()
     return all_categories[category_i], category_i
@@ -224,7 +227,7 @@ if __name__ == '__main__':
 
         # Print ``iter`` number, loss, name and guess
         if iter % print_every == 0:
-            guess, guess_i = categoryFromOutput(output)
+            guess, guess_i = categoryFromOutput(output, category_service.all_categories)
             correct = '✓' if guess == category else '✗ (%s)' % category
             print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, timeSince(start), loss, line, guess, correct))
 

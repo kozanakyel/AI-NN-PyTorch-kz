@@ -4,6 +4,9 @@ import os
 import unicodedata
 import string
 
+import math 
+import time
+import random
 import torch
 import torch.nn as nn
 
@@ -13,29 +16,34 @@ import torch.nn as nn
 
 
 class UtilityService:
-    def __init__(self):
-        self.DATA_PATH = 'my_research/data/'
-        self.all_letters = string.ascii_letters + " .,;'"
-        self.n_letters = len(self.all_letters)
+    DATA_PATH = 'my_research/data/'
+    all_letters = string.ascii_letters + " .,;'"
+    n_letters = len(all_letters)
     
     @staticmethod
     def findFiles(path):
         return glob.glob(path)
 
     # Turn a Unicode string to plain ASCII, thanks to https://stackoverflow.com/a/518232/2809427
-    @staticmethod
-    def unicodeToAscii(s):
+    def unicodeToAscii(self, s):
         return "".join(
             c
             for c in unicodedata.normalize("NFD", s)
-            if unicodedata.category(c) != "Mn" and c in UtilityService.all_letters
+            if unicodedata.category(c) != "Mn" and c in self.all_letters
     )
 
     # Read a file and split into lines
-    @staticmethod
-    def readLines(filename):
+    def readLines(self, filename):
         lines = open(filename, encoding="utf-8").read().strip().split("\n")
-        return [UtilityService.unicodeToAscii(line) for line in lines]
+        return [self.unicodeToAscii(line) for line in lines]
+    
+    @staticmethod
+    def timeSince(since):
+        now = time.time()
+        s = now - since
+        m = math.floor(s / 60)
+        s -= m * 60
+        return '%dm %ds' % (m, s)
 
 
 class CategoryService:
@@ -53,19 +61,14 @@ class CategoryService:
             lines = self._utility_service.readLines(filename)
             self.category_lines[category] = lines
             
-    def categoryFromOutput(self, output, all_categories):
+    def categoryFromOutput(self, output):
         top_n, top_i = output.topk(1)
         category_i = top_i[0].item()
-        return all_categories[category_i], category_i
+        return self.all_categories[category_i], category_i
 
-    # n_categories = len(all_categories)
-
-
-
-###########   PART 2   ################
 
 class TorchLetterUtilityService:
-    # Find letter index from all_letters, e.g. "a" = 0
+
     @staticmethod
     def letterToIndex(letter):
         return UtilityService.all_letters.find(letter)
@@ -85,10 +88,18 @@ class TorchLetterUtilityService:
         for li, letter in enumerate(line):
             tensor[li][0][TorchLetterUtilityService.letterToIndex(letter)] = 1
         return tensor
+    
+    @staticmethod
+    def randomChoice(l):
+        return l[random.randint(0, len(l) - 1)]
 
-
-#############      PART 3         #############
-
+    @staticmethod
+    def randomTrainingExample(category_service: CategoryService):
+        category = TorchLetterUtilityService.randomChoice(category_service.all_categories)
+        line = TorchLetterUtilityService.randomChoice(category_service.category_lines[category])
+        category_tensor = torch.tensor([category_service.all_categories.index(category)], dtype=torch.long)
+        line_tensor = TorchLetterUtilityService.lineToTensor(line)
+        return category, line, category_tensor, line_tensor
 
 
 class RNN(nn.Module):
@@ -156,99 +167,46 @@ class RNN(nn.Module):
                 category_index = topi[0][i].item()
                 print('(%.2f) %s' % (value, category_service.all_categories[category_index]))
                 predictions.append([value, category_service.all_categories[category_index]])
-    
-    
-
-category_service = CategoryService()
-utils = UtilityService()
-n_categories = len(category_service.all_categories)
-n_hidden = 128
-rnn = RNN(utils.n_letters, n_hidden, n_categories, category_service)
-
-
-
-###########     PART 4       #########
-
-import random
-
-def randomChoice(l):
-    return l[random.randint(0, len(l) - 1)]
-
-def randomTrainingExample():
-    category = randomChoice(all_categories)
-    line = randomChoice(category_lines[category])
-    category_tensor = torch.tensor([all_categories.index(category)], dtype=torch.long)
-    line_tensor = lineToTensor(line)
-    return category, line, category_tensor, line_tensor
-
-
-##############   PART 5     #########
-
-
-
-
-
-
-
-##############   PART 6    #########
-
-import time
-import math
-
-n_iters = 100000
-print_every = 5000
-plot_every = 1000
-
-# Keep track of losses for plotting
-current_loss = 0
-all_losses = []
-
-def timeSince(since):
-    now = time.time()
-    s = now - since
-    m = math.floor(s / 60)
-    s -= m * 60
-    return '%dm %ds' % (m, s)
-
 
 
 
 if __name__ == '__main__':
-    # print(findFiles(f"{DATA_PATH}names/*.txt"))
-    # print(unicodeToAscii("Ślusàrski"))
-    # print(f'All letters: {all_letters}, letters length: {n_letters}')   # 57 n_letters
-    # print(all_categories, category_lines['Polish'])
-    # print(category_lines['Italian'][:5])
-    # print(letterToTensor('J'), letterToTensor('K').shape)
-    # print(lineToTensor('Jones').size())
-    # print(n_categories)       #  18
-    # input = lineToTensor('Albert')
-    # hidden = torch.zeros(1, n_hidden)
-
-    # output, next_hidden = rnn(input[0], hidden)
-    # print(output)
-    # print(categoryFromOutput(output))
-    
     import matplotlib.pyplot as plt
     import matplotlib.ticker as ticker
+
+    
+    category_service = CategoryService()
+    utils = UtilityService()
+    n_categories = len(category_service.all_categories)
+    n_hidden = 128
+    rnn = RNN(utils.n_letters, n_hidden, n_categories, category_service)
+    
+    n_iters = 10000
+    print_every = 500
+    plot_every = 100
+
+    # Keep track of losses for plotting
+    current_loss = 0
+    all_losses = []
+
     
     for i in range(10):
-        category, line, category_tensor, line_tensor = randomTrainingExample()
+        category, line, category_tensor, line_tensor = TorchLetterUtilityService.randomTrainingExample(category_service)
         print('category =', category, '/ line =', line)
     
     
     start = time.time()
 
     for iter in range(1, n_iters + 1):
-        category, line, category_tensor, line_tensor = randomTrainingExample()
-        output, loss = train(category_tensor, line_tensor)
+        category, line, category_tensor, line_tensor = TorchLetterUtilityService.randomTrainingExample(category_service)
+        output, loss = rnn.train(category_tensor, line_tensor)
         current_loss += loss
 
         # Print ``iter`` number, loss, name and guess
         if iter % print_every == 0:
-            guess, guess_i = categoryFromOutput(output, category_service.all_categories)
+            guess, guess_i = category_service.categoryFromOutput(output)
             correct = '✓' if guess == category else '✗ (%s)' % category
-            print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, timeSince(start), loss, line, guess, correct))
+            print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, UtilityService.timeSince(start), loss, line, guess, correct))
 
         # Add current loss avg to list of losses
         if iter % plot_every == 0:
@@ -258,7 +216,7 @@ if __name__ == '__main__':
     # PLOT TRAIN VALIDATION LOSS      
     plt.figure()
     plt.plot(all_losses)
-    plt.savefig(f'{DATA_PATH}val_train_loss.png')
+    plt.savefig(f'{UtilityService.DATA_PATH}val_train_loss.png')
     
     # Keep track of correct guesses in a confusion matrix
     confusion = torch.zeros(n_categories, n_categories)
@@ -268,10 +226,10 @@ if __name__ == '__main__':
 
     # Go through a bunch of examples and record which are correctly guessed
     for i in range(n_confusion):
-        category, line, category_tensor, line_tensor = randomTrainingExample()
-        output = evaluate(line_tensor)
-        guess, guess_i = categoryFromOutput(output)
-        category_i = all_categories.index(category)
+        category, line, category_tensor, line_tensor = TorchLetterUtilityService.randomTrainingExample(category_service)
+        output = rnn.evaluate(line_tensor)
+        guess, guess_i = category_service.categoryFromOutput(output)
+        category_i = category_service.all_categories.index(category)
         confusion[category_i][guess_i] += 1
 
     # Normalize by dividing every row by its sum
@@ -285,16 +243,16 @@ if __name__ == '__main__':
     fig.colorbar(cax)
 
     # Set up axes
-    ax.set_xticklabels([''] + all_categories, rotation=90)
-    ax.set_yticklabels([''] + all_categories)
+    ax.set_xticklabels([''] + category_service.all_categories, rotation=90)
+    ax.set_yticklabels([''] + category_service.all_categories)
 
     # Force label at every tick
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
 
     # sphinx_gallery_thumbnail_number = 2
-    plt.savefig(f'{DATA_PATH}heatmap.png')
+    plt.savefig(f'{UtilityService.DATA_PATH}heatmap.png')
     
-    predict('Dovesky')
-    predict('Jackson')
-    predict('Satoshi')
+    rnn.predict('Dovesky')
+    rnn.predict('Jackson')
+    rnn.predict('Satoshi')

@@ -2,8 +2,10 @@ import os
 from pathlib import Path
 
 from config import *
+
 config_chapter0()
 from plots.chapter0 import *
+
 config_chapter1()
 from plots.chapter1 import *
 
@@ -14,8 +16,8 @@ from sklearn.preprocessing import StandardScaler
 import torch
 import torch.optim as optim
 import torch.nn as nn
-# from torchviz import make_dot
 
+# from torchviz import make_dot
 
 
 true_b = 1
@@ -35,6 +37,9 @@ train_idx = idx[:int(N * .8)]
 val_idx = idx[int(N * .8):]
 x_train, y_train = x[train_idx], y[train_idx]
 x_val, y_val = x[val_idx], y[val_idx]
+
+x_t, y_t = x[train_idx], y[train_idx]
+x_v, y_v = x[val_idx], y[val_idx]
 
 # fig, ax = figure1(x_train, y_train, x_val, y_val)
 # fig.savefig(Path(os.getcwd(), 'image_res', 'fr.png'))
@@ -58,7 +63,6 @@ w_range = np.linspace(true_w - 3, true_w + 3, 101)
 bs, ws = np.meshgrid(b_range, w_range)
 print("bs ws shapes", bs.shape, ws.shape)
 
-
 all_predictions = np.apply_along_axis(
     func1d=lambda x: bs + ws * x,
     axis=1,
@@ -76,13 +80,13 @@ print('loss shape', all_losses.shape)
 
 # compute Gradients
 b_grad = 2 * error.mean()
-w_grad = 2 * (x_train*error).mean()
+w_grad = 2 * (x_train * error).mean()
 print("grads b, w: ", b_grad, w_grad)
 
 # update paramaetres with learning rate ETA
 lr = 0.1
-b = b - lr*b_grad
-w = w - lr*w_grad
+b = b - lr * b_grad
+w = w - lr * w_grad
 
 # Preproccesing steps like StandartScaler must be performed After the train-validation test split
 scaler = StandardScaler(with_std=True, with_mean=True)
@@ -134,13 +138,13 @@ tensor : 3 or more dimension
 for reshape:    .view() -preferred! and   .reshape()
 """
 scalar = torch.tensor(3.14159)
-vector = torch.tensor([1,2,3])
-matrix = torch.ones((2,3), dtype=torch.float)
-tensor = torch.randn((2,3,4), dtype=torch.float)
+vector = torch.tensor([1, 2, 3])
+matrix = torch.ones((2, 3), dtype=torch.float)
+tensor = torch.randn((2, 3, 4), dtype=torch.float)
 
 # print(f's: {scalar}\n v: {vector}\n m: {matrix}\n t: {tensor}\n')
 
-same_matrix = matrix.view(1,6)
+same_matrix = matrix.view(1, 6)
 same_matrix[0, 1] = 2.
 
 # for creating a new tensor use .clone or .new_tensor
@@ -152,8 +156,8 @@ another_matrix[0, 1] = 4.
 
 # print(same_matrix, different_matrix, another_matrix)
 
-x_train_tensor = torch.as_tensor(x_train)
-float_tensor = x_train_tensor.float()
+# x_train_tensor = torch.as_tensor(x_train)
+# float_tensor = x_train_tensor.float()
 # print(x_train.dtype, x_train_tensor.dtype)
 
 # both numpy array and tensor modfified  !!! WTf
@@ -164,17 +168,85 @@ dummy_array[1] = 0
 # Tensor gets modified too...
 # print(dummy_tensor)
 
-
+# PYTORCH initiliaze variables
+print('\n##########  PyTorch  ############\n')
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
 
-n_cudas = torch.cuda.device_count()
-for i in range(n_cudas):
-    print(torch.cuda.get_device_name(i))
-gpu_tensor = torch.as_tensor(x_train).to(device)
+# n_cudas = torch.cuda.device_count()
+# for i in range(n_cudas):
+#     print(torch.cuda.get_device_name(i))
+# gpu_tensor = torch.as_tensor(x_train).to(device)
 
 x_train_tensor = torch.as_tensor(x_train).float().to(device)
 y_train_tensor = torch.as_tensor(y_train).float().to(device)
 
-print(type(x_train), type(x_train_tensor), x_train_tensor.type())
+torch.manual_seed(42)
+b = torch.randn(1, requires_grad=True, dtype=torch.float, device=device)
+w = torch.randn(1, requires_grad=True, dtype=torch.float, device=device)
+
+
+# print('before: ', b, w)
+
+
+class ManualLinearRegression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.b = nn.Parameter(torch.randn(1, requires_grad=True, dtype=torch.float))
+        self.w = nn.Parameter(torch.randn(1, requires_grad=True, dtype=torch.float))
+
+    def forward(self, xx):
+        return self.b + self.w * xx
+
+
+model = ManualLinearRegression().to(device)
+lr = .1
+n_epochs = 1000
+optimizer = optim.SGD([b, w], lr=lr)
+loss_fn = nn.MSELoss(reduction='mean')
+
+for epoch in range(n_epochs):
+    model.train()
+
+    yhat = model(x_train_tensor)
+
+    loss = loss_fn(yhat, y_train_tensor)
+    # loss.detach().cpu().numpy()
+    loss.backward()
+
+    optimizer.step()
+    # with torch.no_grad():
+    #     b -= lr*b.grad
+    #     w -= lr*w.grad
+    #
+    # b.grad.zero_()
+    # w.grad.zero_()
+    optimizer.zero_grad()
+
+print(model.state_dict())
+
+# torch.manual_seed(42)
+# # Creates a "dummy" instance of our ManualLinearRegression model
+# dummy = ManualLinearRegression().to(device)
+# print(dummy.state_dict())
+# print(optimizer.state_dict())
+
+linear = nn.Linear(1, 1)
+print(linear, linear.state_dict())
+
+
+class MyLinearRegression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Instead of our custom parameters, we use a Linear model
+        # with a single input and a single output
+        self.linear = nn.Linear(1, 1)
+
+    def forward(self, xxx):
+        # Now it only makes a call
+        self.linear(xxx)
+
+
+torch.manual_seed(42)
+dummy = MyLinearRegression().to(device)
+print(list(dummy.parameters()))
 

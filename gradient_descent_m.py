@@ -97,24 +97,84 @@ scaled_bs, scaled_ws = np.meshgrid(scaled_b_range, scaled_w_range)
 
 ######### Simple Linear Regressions
 
-np.random.seed(42)
-b = np.random.randn(1)
-w = np.random.randn(1)
+# np.random.seed(42)
+# b = np.random.randn(1)
+# w = np.random.randn(1)
+#
+# lr = .1
+# n_epochs = 1000
+#
+# for epoch in range(n_epochs):
+#     yhat = b + w*x_train   # forward propagation
+#
+#     error = yhat - y_train      # computing loss
+#     loss = (error**2).mean()
+#
+#     b_grad = 2*error.mean()         # computing gradients
+#     w_grad = 2*(x_train*error).mean()
+#
+#     b = b - lr*b_grad           # updating parameters
+#     w = w - lr*w_grad
+#
+# print(b, w)
 
-lr = .1
-n_epochs = 1000
+#### with sklearn linear regression
+linr = LinearRegression()
+linr.fit(x_train, y_train)
+print(linr.intercept_, linr.coef_[0])
 
-for epoch in range(n_epochs):
-    yhat = b + w*x_train
+"""
+PYTORCH tensor space
+scalar : zero dimension    // has empty shape for pytorch
+vector : one dimension
+matrix : 2 dimension
+tensor : 3 or more dimension
 
-    error = yhat - y_train
-    loss = (error**2).mean()
+.size() and .shape works....
+for reshape:    .view() -preferred! and   .reshape()
+"""
+scalar = torch.tensor(3.14159)
+vector = torch.tensor([1,2,3])
+matrix = torch.ones((2,3), dtype=torch.float)
+tensor = torch.randn((2,3,4), dtype=torch.float)
 
-    b_grad = 2*error.mean()
-    w_grad = 2*(x_train*error).mean()
+# print(f's: {scalar}\n v: {vector}\n m: {matrix}\n t: {tensor}\n')
 
-    b = b - lr*b_grad
-    w = w - lr*w_grad
+same_matrix = matrix.view(1,6)
+same_matrix[0, 1] = 2.
 
-print(b, w)
+# for creating a new tensor use .clone or .new_tensor
+# different_matrix = matrix.new_tensor(matrix.view(1, 6))
+# different_matrix[0, 1] = 3.
+
+another_matrix = matrix.view(1, 6).clone().detach()  # detach remove from computaional graph
+another_matrix[0, 1] = 4.
+
+# print(same_matrix, different_matrix, another_matrix)
+
+x_train_tensor = torch.as_tensor(x_train)
+float_tensor = x_train_tensor.float()
+# print(x_train.dtype, x_train_tensor.dtype)
+
+# both numpy array and tensor modfified  !!! WTf
+dummy_array = np.array([1, 2, 3])
+dummy_tensor = torch.as_tensor(dummy_array)
+# Modifies the numpy array
+dummy_array[1] = 0
+# Tensor gets modified too...
+# print(dummy_tensor)
+
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(device)
+
+n_cudas = torch.cuda.device_count()
+for i in range(n_cudas):
+    print(torch.cuda.get_device_name(i))
+gpu_tensor = torch.as_tensor(x_train).to(device)
+
+x_train_tensor = torch.as_tensor(x_train).float().to(device)
+y_train_tensor = torch.as_tensor(y_train).float().to(device)
+
+print(type(x_train), type(x_train_tensor), x_train_tensor.type())
 

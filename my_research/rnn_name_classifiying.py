@@ -4,24 +4,21 @@ import os
 import unicodedata
 import string
 
-import math 
+import math
 import time
 import random
 import torch
 import torch.nn as nn
 
-# DATA_PATH = 'my_research/data/'
-# all_letters = string.ascii_letters + " .,;'"
-# n_letters = len(all_letters)
-
 
 class UtilityService:
-    DATA_PATH = 'my_research/data/'
+    DATA_PATH = '/root/Documents/PyTorchStepByStep/my_research/data/'
     all_letters = string.ascii_letters + " .,;'"
     n_letters = len(all_letters)
-    
+
     @staticmethod
     def findFiles(path):
+        print(path, os.getcwd())
         return glob.glob(path)
 
     # Turn a Unicode string to plain ASCII, thanks to https://stackoverflow.com/a/518232/2809427
@@ -30,13 +27,13 @@ class UtilityService:
             c
             for c in unicodedata.normalize("NFD", s)
             if unicodedata.category(c) != "Mn" and c in self.all_letters
-    )
+        )
 
     # Read a file and split into lines
     def readLines(self, filename):
         lines = open(filename, encoding="utf-8").read().strip().split("\n")
         return [self.unicodeToAscii(line) for line in lines]
-    
+
     @staticmethod
     def timeSince(since):
         now = time.time()
@@ -60,7 +57,7 @@ class CategoryService:
             self.all_categories.append(category)
             lines = self._utility_service.readLines(filename)
             self.category_lines[category] = lines
-            
+
     def categoryFromOutput(self, output):
         top_n, top_i = output.topk(1)
         category_i = top_i[0].item()
@@ -88,7 +85,7 @@ class TorchLetterUtilityService:
         for li, letter in enumerate(line):
             tensor[li][0][TorchLetterUtilityService.letterToIndex(letter)] = 1
         return tensor
-    
+
     @staticmethod
     def randomChoice(l):
         return l[random.randint(0, len(l) - 1)]
@@ -111,12 +108,12 @@ class RNN(nn.Module):
         self.i2h = nn.Linear(input_size + hidden_size, hidden_size)
         self.h2o = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
-        
+
         self.criterion = nn.NLLLoss()
-        self.learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
+        self.learning_rate = 0.005  # If you set this too high, it might explode. If too low, it might not learn
 
         self.category_service = category_service
-        
+
     def forward(self, input, hidden):
         combined = torch.cat((input, hidden), 1)
         hidden = self.i2h(combined)
@@ -126,7 +123,7 @@ class RNN(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, self.hidden_size)
-    
+
     def train(self, category_tensor, line_tensor):
         hidden = self.initHidden()
 
@@ -143,7 +140,7 @@ class RNN(nn.Module):
             p.data.add_(p.grad.data, alpha=-self.learning_rate)
 
         return output, loss.item()
-    
+
     # Just return an output given a line
     def evaluate(self, line_tensor):
         hidden = self.initHidden()
@@ -152,7 +149,7 @@ class RNN(nn.Module):
             output, hidden = self(line_tensor[i], hidden)
 
         return output
-    
+
     def predict(self, input_line, n_predictions=3):
         print('\n> %s' % input_line)
         with torch.no_grad():
@@ -169,18 +166,16 @@ class RNN(nn.Module):
                 predictions.append([value, category_service.all_categories[category_index]])
 
 
-
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import matplotlib.ticker as ticker
 
-    
     category_service = CategoryService()
     utils = UtilityService()
     n_categories = len(category_service.all_categories)
     n_hidden = 128
     rnn = RNN(utils.n_letters, n_hidden, n_categories, category_service)
-    
+
     n_iters = 10000
     print_every = 500
     plot_every = 100
@@ -189,12 +184,10 @@ if __name__ == '__main__':
     current_loss = 0
     all_losses = []
 
-    
     for i in range(10):
         category, line, category_tensor, line_tensor = TorchLetterUtilityService.randomTrainingExample(category_service)
         print('category =', category, '/ line =', line)
-    
-    
+
     start = time.time()
 
     for iter in range(1, n_iters + 1):
@@ -206,23 +199,22 @@ if __name__ == '__main__':
         if iter % print_every == 0:
             guess, guess_i = category_service.categoryFromOutput(output)
             correct = '✓' if guess == category else '✗ (%s)' % category
-            print('%d %d%% (%s) %.4f %s / %s %s' % (iter, iter / n_iters * 100, UtilityService.timeSince(start), loss, line, guess, correct))
+            print('%d %d%% (%s) %.4f %s / %s %s' % (
+            iter, iter / n_iters * 100, UtilityService.timeSince(start), loss, line, guess, correct))
 
         # Add current loss avg to list of losses
         if iter % plot_every == 0:
             all_losses.append(current_loss / plot_every)
-            current_loss = 0   
-    
-    # PLOT TRAIN VALIDATION LOSS      
+            current_loss = 0
+
+            # PLOT TRAIN VALIDATION LOSS
     plt.figure()
     plt.plot(all_losses)
     plt.savefig(f'{UtilityService.DATA_PATH}val_train_loss.png')
-    
+
     # Keep track of correct guesses in a confusion matrix
     confusion = torch.zeros(n_categories, n_categories)
     n_confusion = 10000
-
-    
 
     # Go through a bunch of examples and record which are correctly guessed
     for i in range(n_confusion):
@@ -252,7 +244,7 @@ if __name__ == '__main__':
 
     # sphinx_gallery_thumbnail_number = 2
     plt.savefig(f'{UtilityService.DATA_PATH}heatmap.png')
-    
+
     rnn.predict('Dovesky')
     rnn.predict('Jackson')
     rnn.predict('Satoshi')

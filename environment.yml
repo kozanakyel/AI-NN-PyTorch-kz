@@ -21,3 +21,4 @@ dependencies:
     - torchviz
     - tensorboard
     - jupyter-server-proxy
+    - gensim

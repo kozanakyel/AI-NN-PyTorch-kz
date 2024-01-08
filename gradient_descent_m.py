@@ -2,11 +2,7 @@ import os
 from pathlib import Path
 
 from config import *
-
-config_chapter0()
 from plots.chapter0 import *
-
-config_chapter1()
 from plots.chapter1 import *
 
 import numpy as np
@@ -18,6 +14,10 @@ import torch.optim as optim
 import torch.nn as nn
 
 # from torchviz import make_dot
+
+
+config_chapter1()
+config_chapter0()
 
 
 true_b = 1
@@ -249,4 +249,3 @@ class MyLinearRegression(nn.Module):
 torch.manual_seed(42)
 dummy = MyLinearRegression().to(device)
 print(list(dummy.parameters()))
-
